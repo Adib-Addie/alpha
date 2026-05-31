@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:animations/animations.dart';
 
 class StudentDashLeaderboardPage extends StatefulWidget {
   final String? initialBatch;
@@ -12,23 +12,34 @@ class StudentDashLeaderboardPage extends StatefulWidget {
 }
 
 class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
-    with AutomaticKeepAliveClientMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
 
   String? _selectedBatch;
+  late AnimationController _headerController;
+  late AnimationController _loaderController;
+  late Animation<double> _headerFadeAnimation;
+  late Animation<double> _headerScaleAnimation;
+  late Animation<double> _loaderRotationAnimation;
+  late Animation<double> _loaderPulseAnimation;
 
   // Cache for better performance
   List<String>? _cachedBatches;
   Map<String, List<Map<String, dynamic>>> _cachedLeaderboards = {};
 
+  // Reduced animation controllers for better performance
+  List<AnimationController> _cardControllers = [];
+  List<Animation<double>> _cardFadeAnimations = [];
+  List<Animation<Offset>> _cardSlideAnimations = [];
+
   static const List<List<Color>> cardGradients = [
-    [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
-    [AppTheme.surfaceElevated, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [Color(0xFF0A0020), Color(0xFF150040), Color(0xFF200060)],
-    [Color(0xFF12002F), Color(0xFF1C0050), Color(0xFF2D0080)],
-    [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
-    [AppTheme.surfaceElevated, AppTheme.backgroundMid, AppTheme.backgroundEnd],
+    [Color(0xFF667EEA), Color(0xFF764BA2)],
+    [Color(0xFF10B981), Color(0xFF38EF7D)],
+    [Color(0xFFFC466B), Color(0xFF3F5EFB)],
+    [Color(0xFFF59E0B), Color(0xFFEAB308)],
+    [Color(0xFFFF6B6B), Color(0xFF4ECDC4)],
+    [Color(0xFF845EC2), Color(0xFFD65DB1)],
+    [Color(0xFF4E54C8), Color(0xFF8F94FB)],
+    [Color(0xFFFF9A8B), Color(0xFFA8E6CF)],
   ];
 
   @override
@@ -38,6 +49,138 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
   void initState() {
     super.initState();
     _selectedBatch = widget.initialBatch;
+    _initializeAnimations();
+  }
+
+  void _initializeAnimations() {
+    _headerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800), // Reduced duration
+    );
+    _headerFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutQuad),
+    );
+    _headerScaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutBack),
+    );
+    _headerController.forward();
+
+    _loaderController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500), // Reduced duration
+    );
+    _loaderRotationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _loaderController, curve: Curves.linear),
+    );
+    _loaderPulseAnimation = Tween<double>(begin: 0.9, end: 1.1).animate(
+      CurvedAnimation(parent: _loaderController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _headerController.dispose();
+    _loaderController.dispose();
+    for (var controller in _cardControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _initializeCardAnimations(int itemCount) {
+    // Dispose existing controllers
+    for (var controller in _cardControllers) {
+      controller.dispose();
+    }
+    _cardControllers.clear();
+    _cardFadeAnimations.clear();
+    _cardSlideAnimations.clear();
+
+    // Limit animations for performance - only animate first 10 items
+    final animationCount = itemCount > 10 ? 10 : itemCount;
+
+    for (int i = 0; i < animationCount; i++) {
+      final controller = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 400), // Reduced duration
+      );
+      final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeOutQuad),
+      );
+      final slideAnimation = Tween<Offset>(
+        begin: const Offset(0, 0.1), // Reduced slide distance
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
+      );
+
+      _cardControllers.add(controller);
+      _cardFadeAnimations.add(fadeAnimation);
+      _cardSlideAnimations.add(slideAnimation);
+
+      // Reduced delay for faster loading
+      Future.delayed(Duration(milliseconds: i * 50), () {
+        if (mounted) controller.forward();
+      });
+    }
+  }
+
+  Widget _buildCustomLoader({String text = "Loading..."}) {
+    if (!_loaderController.isAnimating) {
+      _loaderController.repeat();
+    }
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: _loaderController,
+            builder: (context, child) {
+              return Transform.rotate(
+                angle: _loaderRotationAnimation.value * 2 * 3.14159,
+                child: Transform.scale(
+                  scale: _loaderPulseAnimation.value,
+                  child: Container(
+                    width: 60, // Reduced size for better performance
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF667EEA).withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.leaderboard_rounded,
+                      size: 28,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 16),
+          Text(
+            text,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<List<String>> _fetchBatches() async {
@@ -58,7 +201,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
           .toList();
 
       batches.sort();
-      _cachedBatches = batches;
+      _cachedBatches = batches; // Cache the result
       return batches;
     } catch (e) {
       if (mounted) {
@@ -69,15 +212,17 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
   }
 
   Future<List<Map<String, dynamic>>> _fetchLeaderboardData(String batch) async {
+    // Check cache first
     if (_cachedLeaderboards.containsKey(batch)) {
       return _cachedLeaderboards[batch]!;
     }
 
     try {
+      // Optimized query with limit and indexing
       final studentsSnapshot = await FirebaseFirestore.instance
           .collection('students')
           .where('batch', isEqualTo: batch)
-          .limit(100)
+          .limit(100) // Limit results for better performance
           .get();
 
       final studentScores = <String, Map<String, dynamic>>{};
@@ -95,6 +240,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
           'testsCompleted': 0,
         };
 
+        // Use batch processing for better performance
         futures.add(
             FirebaseFirestore.instance
                 .collection('test_results')
@@ -132,6 +278,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
 
       leaderboard.sort((a, b) => b['score'].compareTo(a['score']));
 
+      // Cache the result
       _cachedLeaderboards[batch] = leaderboard;
 
       return leaderboard;
@@ -182,7 +329,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
 
     return Scaffold(
       body: Container(
@@ -191,14 +338,14 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
+              Color(0xFF334155),
             ],
           ),
         ),
         child: SafeArea(
-          child: CustomScrollView(
+          child: CustomScrollView( // Using CustomScrollView for better performance
             slivers: [
               SliverToBoxAdapter(
                 child: Padding(
@@ -220,37 +367,48 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.backgroundEnd.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
+    return AnimatedBuilder(
+      animation: _headerController,
+      builder: (context, child) {
+        return FadeTransition(
+          opacity: _headerFadeAnimation,
+          child: Transform.scale(
+            scale: _headerScaleAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF0F172A),
+                    Color(0xFF1E293B),
+                    Color(0xFF334155),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF334155).withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  _buildBackButton(),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildHeaderContent()),
+                  if (_selectedBatch == null && widget.initialBatch == null)
+                    _buildRefreshButton(),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          _buildBackButton(),
-          const SizedBox(width: 12),
-          Expanded(child: _buildHeaderContent()),
-          if (_selectedBatch == null && widget.initialBatch == null)
-            _buildRefreshButton(),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -262,7 +420,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
         border: Border.all(color: Colors.white.withOpacity(0.2)),
       ),
       child: IconButton(
-        icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary, size: 24),
+        icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
         onPressed: () {
           if (widget.initialBatch != null) {
             Navigator.pop(context);
@@ -288,12 +446,12 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0xFF7B2FBE).withOpacity(0.2),
+                color: const Color(0xFF667EEA).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
                   Icons.leaderboard_rounded,
-                  color: Color(0xFF7B2FBE),
+                  color: Color(0xFF667EEA),
                   size: 20),
             ),
             const SizedBox(width: 8),
@@ -305,7 +463,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary,
+                  color: Colors.white,
                   letterSpacing: -0.3,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -320,7 +478,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
               : 'Select a batch to view student rankings',
           style: GoogleFonts.inter(
             fontSize: 14,
-            color: AppTheme.textPrimary.withOpacity(0.8),
+            color: Colors.white.withOpacity(0.8),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -336,8 +494,9 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
         border: Border.all(color: Colors.white.withOpacity(0.2)),
       ),
       child: IconButton(
-        icon: const Icon(Icons.refresh_rounded, color: AppTheme.textPrimary, size: 24),
+        icon: const Icon(Icons.refresh_rounded, color: Colors.white, size: 24),
         onPressed: () {
+          // Clear cache and refresh
           _cachedBatches = null;
           _cachedLeaderboards.clear();
           setState(() {});
@@ -360,7 +519,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
       future: _fetchBatches(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFF7B2FBE)));
+          return _buildCustomLoader(text: "Loading batches...");
         }
         if (snapshot.hasError) {
           return _buildErrorView('Error Loading Batches', 'Please try again later');
@@ -375,6 +534,8 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
           );
         }
 
+        _initializeCardAnimations(batches.length);
+
         return GridView.builder(
           padding: const EdgeInsets.only(bottom: 80),
           gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -387,12 +548,24 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
           itemBuilder: (context, index) {
             final batch = batches[index];
             final gradient = cardGradients[index % cardGradients.length];
+            final shouldAnimate = index < _cardFadeAnimations.length;
 
-            return EnhancedBatchCard(
+            final card = EnhancedBatchCard(
               batch: batch,
               gradient: gradient,
               onTap: () => setState(() => _selectedBatch = batch),
             );
+
+            if (shouldAnimate) {
+              return FadeTransition(
+                opacity: _cardFadeAnimations[index],
+                child: SlideTransition(
+                  position: _cardSlideAnimations[index],
+                  child: card,
+                ),
+              );
+            }
+            return card;
           },
         );
       },
@@ -404,7 +577,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
       future: _fetchLeaderboardData(_selectedBatch ?? widget.initialBatch!),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFF7B2FBE)));
+          return _buildCustomLoader(text: "Loading leaderboard...");
         }
         if (snapshot.hasError) {
           return _buildErrorView('Error Loading Leaderboard', 'Please try again later');
@@ -419,18 +592,32 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
           );
         }
 
+        _initializeCardAnimations(leaderboard.length);
+
         return ListView.builder(
           padding: const EdgeInsets.only(bottom: 80),
           itemCount: leaderboard.length,
           itemBuilder: (context, index) {
             final student = leaderboard[index];
             final gradient = _getRankGradient(index + 1);
+            final shouldAnimate = index < _cardFadeAnimations.length;
 
-            return EnhancedLeaderboardCard(
+            final card = EnhancedLeaderboardCard(
               student: student,
               rank: index + 1,
               gradient: gradient,
             );
+
+            if (shouldAnimate) {
+              return FadeTransition(
+                opacity: _cardFadeAnimations[index],
+                child: SlideTransition(
+                  position: _cardSlideAnimations[index],
+                  child: card,
+                ),
+              );
+            }
+            return card;
           },
         );
       },
@@ -453,7 +640,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
             style: GoogleFonts.inter(
               fontSize: 24,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 6),
@@ -462,7 +649,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: const Color(0xFF94A3B8),
             ),
           ),
         ],
@@ -478,7 +665,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
           Icon(
             icon,
             size: 60,
-            color: AppTheme.textSecondary.withOpacity(0.5),
+            color: const Color(0xFF94A3B8).withOpacity(0.5),
           ),
           const SizedBox(height: 12),
           Text(
@@ -486,7 +673,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
             style: GoogleFonts.inter(
               fontSize: 24,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textPrimary,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 6),
@@ -495,7 +682,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: AppTheme.textSecondary,
+              color: const Color(0xFF94A3B8),
             ),
             textAlign: TextAlign.center,
           ),
@@ -505,6 +692,7 @@ class _StudentDashLeaderboardPageState extends State<StudentDashLeaderboardPage>
   }
 }
 
+// Optimized Batch Card
 class EnhancedBatchCard extends StatefulWidget {
   final String batch;
   final List<Color> gradient;
@@ -521,86 +709,112 @@ class EnhancedBatchCard extends StatefulWidget {
   _EnhancedBatchCardState createState() => _EnhancedBatchCardState();
 }
 
-class _EnhancedBatchCardState extends State<EnhancedBatchCard> {
-  bool _isPressed = false;
+class _EnhancedBatchCardState extends State<EnhancedBatchCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _hoverController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _isPressed = false),
+      onTapDown: (_) => _hoverController.forward(),
+      onTapUp: (_) => _hoverController.reverse(),
+      onTapCancel: () => _hoverController.reverse(),
       onTap: widget.onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: widget.gradient,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: widget.gradient.first.withOpacity(_isPressed ? 0.5 : 0.3),
-              blurRadius: _isPressed ? 10 : 15,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.group_rounded,
-                size: 24,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              widget.batch,
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.textPrimary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'View Rankings',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
+                gradient: LinearGradient(
+                  colors: widget.gradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.gradient.first.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.group_rounded,
+                      size: 24,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.batch,
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'View Rankings',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 }
 
-class EnhancedLeaderboardCard extends StatelessWidget {
+// Optimized Leaderboard Card
+class EnhancedLeaderboardCard extends StatefulWidget {
   final Map<String, dynamic> student;
   final int rank;
   final List<Color> gradient;
@@ -611,6 +825,37 @@ class EnhancedLeaderboardCard extends StatelessWidget {
     required this.rank,
     required this.gradient,
   }) : super(key: key);
+
+  @override
+  _EnhancedLeaderboardCardState createState() => _EnhancedLeaderboardCardState();
+}
+
+class _EnhancedLeaderboardCardState extends State<EnhancedLeaderboardCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    if (widget.rank <= 3) {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   IconData _getRankIcon(int rank) {
     switch (rank) {
@@ -627,9 +872,9 @@ class EnhancedLeaderboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = student['name'] ?? 'Unknown';
-    final profilePictureUrl = student['profilePictureUrl'] as String?;
-    final testsCompleted = student['testsCompleted'] ?? 0;
+    final name = widget.student['name'] ?? 'Unknown';
+    final profilePictureUrl = widget.student['profilePictureUrl'] as String?;
+    final testsCompleted = widget.student['testsCompleted'] ?? 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -637,20 +882,20 @@ class EnhancedLeaderboardCard extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.backgroundMid.withOpacity(0.8),
-            AppTheme.backgroundEnd.withOpacity(0.6),
+            const Color(0xFF1E293B).withOpacity(0.8),
+            const Color(0xFF334155).withOpacity(0.6),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: gradient.first.withOpacity(0.3),
+          color: widget.gradient.first.withOpacity(0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: gradient.first.withOpacity(0.2),
+            color: widget.gradient.first.withOpacity(0.2),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -659,46 +904,54 @@ class EnhancedLeaderboardCard extends StatelessWidget {
       child: Row(
         children: [
           // Rank Badge
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: gradient,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: gradient.first.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _getRankIcon(rank),
-                  size: rank <= 3 ? 18 : 16,
-                  color: AppTheme.textPrimary,
-                ),
-                Text(
-                  '#$rank',
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+          AnimatedBuilder(
+            animation: widget.rank <= 3 ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
+            builder: (context, child) {
+              return Transform.scale(
+                scale: widget.rank <= 3 ? _pulseAnimation.value : 1.0,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: widget.gradient,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.gradient.first.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _getRankIcon(widget.rank),
+                        size: widget.rank <= 3 ? 18 : 16,
+                        color: Colors.white,
+                      ),
+                      Text(
+                        '#${widget.rank}',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
           const SizedBox(width: 12),
 
@@ -708,7 +961,7 @@ class EnhancedLeaderboardCard extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: gradient,
+                colors: widget.gradient,
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -747,7 +1000,7 @@ class EnhancedLeaderboardCard extends StatelessWidget {
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
+                      color: Colors.white,
                     ),
                   ),
                 ),
@@ -758,7 +1011,7 @@ class EnhancedLeaderboardCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -776,7 +1029,7 @@ class EnhancedLeaderboardCard extends StatelessWidget {
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textPrimary,
+                    color: Colors.white,
                     letterSpacing: -0.2,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -790,29 +1043,29 @@ class EnhancedLeaderboardCard extends StatelessWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: gradient.first.withOpacity(0.2),
+                        color: widget.gradient.first.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: gradient.first.withOpacity(0.3),
+                          color: widget.gradient.first.withOpacity(0.3),
                         ),
                       ),
                       child: Text(
-                        '${student['percentage']}%',
+                        '${widget.student['percentage']}%',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: gradient.first,
+                          color: widget.gradient.first,
                         ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
-                        '${student['score'].toInt()}/${student['totalQuestions'].toInt()}',
+                        '${widget.student['score'].toInt()}/${widget.student['totalQuestions'].toInt()}',
                         style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textMuted,
+                          color: Colors.white60,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -825,7 +1078,7 @@ class EnhancedLeaderboardCard extends StatelessWidget {
                     Icon(
                       Icons.quiz_rounded,
                       size: 12,
-                      color: AppTheme.textPrimary,
+                      color: Colors.white,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -833,7 +1086,7 @@ class EnhancedLeaderboardCard extends StatelessWidget {
                       style: GoogleFonts.inter(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -843,33 +1096,41 @@ class EnhancedLeaderboardCard extends StatelessWidget {
           ),
 
           // Achievement Badge for Top 3
-          if (rank <= 3)
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: gradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: gradient.first.withOpacity(0.4),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+          if (widget.rank <= 3)
+            AnimatedBuilder(
+              animation: _pulseAnimation,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: _pulseAnimation.value,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: widget.gradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: widget.gradient.first.withOpacity(0.4),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      widget.rank == 1
+                          ? Icons.stars_rounded
+                          : widget.rank == 2
+                          ? Icons.star_rounded
+                          : Icons.star_half_rounded,
+                      size: 16,
+                      color: Colors.white,
+                    ),
                   ),
-                ],
-              ),
-              child: Icon(
-                rank == 1
-                    ? Icons.stars_rounded
-                    : rank == 2
-                    ? Icons.star_rounded
-                    : Icons.star_half_rounded,
-                size: 16,
-                color: AppTheme.textPrimary,
-              ),
+                );
+              },
             ),
         ],
       ),

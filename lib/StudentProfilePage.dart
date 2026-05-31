@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'app_theme.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -19,15 +18,92 @@ class StudentProfilePage extends StatefulWidget {
   State<StudentProfilePage> createState() => _StudentProfilePageState();
 }
 
-class _StudentProfilePageState extends State<StudentProfilePage> {
+class _StudentProfilePageState extends State<StudentProfilePage> with TickerProviderStateMixin {
+  late AnimationController _headerController;
+  late AnimationController _pulseController;
+  late Animation<double> _headerFadeAnimation;
+  late Animation<double> _headerScaleAnimation;
+  late List<AnimationController> _cardControllers;
+  late List<Animation<double>> _cardFadeAnimations;
+  late List<Animation<Offset>> _cardSlideAnimations;
   bool _isLoading = false;
 
   final List<List<Color>> cardGradients = [
-    [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
-    [AppTheme.surfaceElevated, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
+    [const Color(0xFF667EEA), const Color(0xFF764BA2)],
+    [const Color(0xFF10B981), const Color(0xFF38EF7D)],
+    [const Color(0xFFFC466B), const Color(0xFF3F5EFB)],
+    [const Color(0xFFF59E0B), const Color(0xFFEAB308)],
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _headerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
+    _headerFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutQuad),
+    );
+    _headerScaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutBack),
+    );
+    _headerController.forward();
+    _pulseController.repeat(reverse: true);
+
+    _cardControllers = [];
+    _cardFadeAnimations = [];
+    _cardSlideAnimations = [];
+  }
+
+  @override
+  void dispose() {
+    _headerController.dispose();
+    _pulseController.dispose();
+    for (var controller in _cardControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _initializeCardAnimations(int itemCount) {
+    if (_cardControllers.length != itemCount) {
+      for (var controller in _cardControllers) {
+        controller.dispose();
+      }
+      _cardControllers.clear();
+      _cardFadeAnimations.clear();
+      _cardSlideAnimations.clear();
+
+      for (int i = 0; i < itemCount; i++) {
+        final controller = AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 800),
+        );
+        final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(parent: controller, curve: Curves.easeOutQuad),
+        );
+        final slideAnimation = Tween<Offset>(
+          begin: const Offset(0, 0.2),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
+        );
+
+        _cardControllers.add(controller);
+        _cardFadeAnimations.add(fadeAnimation);
+        _cardSlideAnimations.add(slideAnimation);
+
+        Future.delayed(Duration(milliseconds: i * 150), () {
+          if (mounted) controller.forward();
+        });
+      }
+    }
+  }
 
   Future<void> _downloadResult(Map<String, dynamic> result, Map<String, dynamic> student) async {
     setState(() => _isLoading = true);
@@ -52,7 +128,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               width: double.infinity,
               decoration: pw.BoxDecoration(
                 color: PdfColors.white,
-                border: pw.Border.all(color: PdfColor.fromInt(0xFF7B2FBE), width: 6),
+                border: pw.Border.all(color: PdfColor.fromInt(0xFF667EEA), width: 6),
               ),
               child: pw.Padding(
                 padding: const pw.EdgeInsets.all(20),
@@ -65,12 +141,12 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                       padding: const pw.EdgeInsets.all(15),
                       decoration: pw.BoxDecoration(
                         gradient: pw.LinearGradient(
-                          colors: [PdfColor.fromInt(0xFF7B2FBE), PdfColor.fromInt(0xFF4A00E0)],
+                          colors: [PdfColor.fromInt(0xFF667EEA), PdfColor.fromInt(0xFF764BA2)],
                           begin: pw.Alignment.topLeft,
                           end: pw.Alignment.bottomRight,
                         ),
                         borderRadius: pw.BorderRadius.circular(10),
-                        border: pw.Border.all(color: PdfColor.fromInt(0xFF16213E), width: 1.5),
+                        border: pw.Border.all(color: PdfColor.fromInt(0xFF334155), width: 1.5),
                       ),
                       child: pw.Column(
                         children: [
@@ -79,7 +155,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                             decoration: pw.BoxDecoration(
                               color: PdfColors.white,
                               borderRadius: pw.BorderRadius.circular(40),
-                              border: pw.Border.all(color: PdfColor.fromInt(0xFF7B2FBE), width: 2),
+                              border: pw.Border.all(color: PdfColor.fromInt(0xFF667EEA), width: 2),
                             ),
                             child: pw.ClipOval(
                               child: pw.Image(logoImage, width: 60, height: 60),
@@ -89,7 +165,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                           pw.Container(
                             padding: const pw.EdgeInsets.symmetric(horizontal: 15, vertical: 8),
                             decoration: pw.BoxDecoration(
-                              color: PdfColor.fromInt(0xFF1A1A2E),
+                              color: PdfColor.fromInt(0xFF1E293B),
                               borderRadius: pw.BorderRadius.circular(20),
                             ),
                             child: pw.Text(
@@ -108,7 +184,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                             padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: pw.BoxDecoration(
                               gradient: pw.LinearGradient(
-                                colors: [PdfColor.fromInt(0xFF7B2FBE), PdfColor.fromInt(0xFF4A00E0)],
+                                colors: [PdfColor.fromInt(0xFF667EEA), PdfColor.fromInt(0xFF764BA2)],
                                 begin: pw.Alignment.topLeft,
                                 end: pw.Alignment.bottomRight,
                               ),
@@ -133,9 +209,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                       width: double.infinity,
                       padding: const pw.EdgeInsets.all(15),
                       decoration: pw.BoxDecoration(
-                        color: PdfColor.fromInt(0xFF0A0A0A),
+                        color: PdfColor.fromInt(0xFF0F172A),
                         borderRadius: pw.BorderRadius.circular(10),
-                        border: pw.Border.all(color: PdfColor.fromInt(0xFF16213E), width: 1.5),
+                        border: pw.Border.all(color: PdfColor.fromInt(0xFF334155), width: 1.5),
                       ),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -144,7 +220,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                             padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: pw.BoxDecoration(
                               gradient: pw.LinearGradient(
-                                colors: [PdfColor.fromInt(0xFF7B2FBE), PdfColor.fromInt(0xFF4A00E0)],
+                                colors: [PdfColor.fromInt(0xFF667EEA), PdfColor.fromInt(0xFF764BA2)],
                                 begin: pw.Alignment.topLeft,
                                 end: pw.Alignment.bottomRight,
                               ),
@@ -193,7 +269,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                       decoration: pw.BoxDecoration(
                         color: _getPerformanceColor(result['score'] ?? 0, result['total'] ?? 0),
                         borderRadius: pw.BorderRadius.circular(10),
-                        border: pw.Border.all(color: PdfColor.fromInt(0xFF16213E), width: 1.5),
+                        border: pw.Border.all(color: PdfColor.fromInt(0xFF334155), width: 1.5),
                       ),
                       child: pw.Column(
                         children: [
@@ -223,9 +299,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                       width: double.infinity,
                       padding: const pw.EdgeInsets.all(15),
                       decoration: pw.BoxDecoration(
-                        color: PdfColor.fromInt(0xFF0A0A0A),
+                        color: PdfColor.fromInt(0xFF0F172A),
                         borderRadius: pw.BorderRadius.circular(10),
-                        border: pw.Border.all(color: PdfColor.fromInt(0xFF16213E), width: 1.5),
+                        border: pw.Border.all(color: PdfColor.fromInt(0xFF334155), width: 1.5),
                       ),
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -235,7 +311,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                             style: pw.TextStyle(
                               font: robotoBold,
                               fontSize: 14,
-                              color: PdfColor.fromInt(0xFF7B2FBE),
+                              color: PdfColor.fromInt(0xFF667EEA),
                             ),
                           ),
                           pw.SizedBox(height: 8),
@@ -258,7 +334,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                         width: double.infinity,
                         padding: const pw.EdgeInsets.all(15),
                         decoration: pw.BoxDecoration(
-                          color: PdfColor.fromInt(0xFF0A0A0A),
+                          color: PdfColor.fromInt(0xFF0F172A),
                           borderRadius: pw.BorderRadius.circular(10),
                           border: pw.Border.all(color: PdfColor.fromInt(0xFFE53E3E), width: 1.5),
                         ),
@@ -321,7 +397,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                           ),
                                           child: pw.Center(
                                             child: pw.Text(
-                                              '?',
+                                              '✗',
                                               style: pw.TextStyle(
                                                 font: robotoBold,
                                                 fontSize: 10,
@@ -356,7 +432,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                           ),
                                           child: pw.Center(
                                             child: pw.Text(
-                                              '?',
+                                              '✓',
                                               style: pw.TextStyle(
                                                 font: robotoBold,
                                                 fontSize: 10,
@@ -459,8 +535,8 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
         pw.Container(
           padding: const pw.EdgeInsets.all(12),
           decoration: pw.BoxDecoration(
-            color: PdfColor.fromInt(0xFF0A0A0A),
-            border: pw.Border.all(color: PdfColor.fromInt(0xFF16213E), width: 1),
+            color: PdfColor.fromInt(0xFF0F172A),
+            border: pw.Border.all(color: PdfColor.fromInt(0xFF334155), width: 1),
           ),
           child: pw.Text(
             label,
@@ -475,7 +551,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
           padding: const pw.EdgeInsets.all(12),
           decoration: pw.BoxDecoration(
             color: PdfColors.white,
-            border: pw.Border.all(color: PdfColor.fromInt(0xFF16213E), width: 1),
+            border: pw.Border.all(color: PdfColor.fromInt(0xFF334155), width: 1),
           ),
           child: pw.Text(
             value,
@@ -491,7 +567,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
   }
 
   PdfColor _getPerformanceColor(int score, int total) {
-    if (total == 0) return PdfColor.fromInt(0xFF9E9E9E);
+    if (total == 0) return PdfColor.fromInt(0xFF64748B);
     double percentage = (score / total) * 100;
     if (percentage >= 80) return PdfColor.fromInt(0xFF10B981);
     if (percentage >= 60) return PdfColor.fromInt(0xFFF59E0B);
@@ -512,20 +588,20 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: AppTheme.backgroundStart,
+        backgroundColor: const Color(0xFF1E293B),
         title: Text(
           'Delete Test Result',
           style: GoogleFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w700,
-            color: AppTheme.textPrimary,
+            color: Colors.white,
           ),
         ),
         content: Text(
           'Are you sure you want to delete this test result?',
           style: GoogleFonts.inter(
             fontSize: 16,
-            color: AppTheme.textSecondary,
+            color: const Color(0xFF94A3B8),
           ),
         ),
         actions: [
@@ -536,7 +612,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               style: GoogleFonts.inter(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.textSecondary,
+                color: const Color(0xFF94A3B8),
               ),
             ),
           ),
@@ -620,7 +696,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               child: CachedNetworkImage(
                 imageUrl: imageUrl,
                 fit: BoxFit.contain,
-                placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Color(0xFF7B2FBE))),
+                placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Color(0xFF667EEA))),
                 errorWidget: (context, url, error) => const Center(
                   child: Icon(Icons.error, color: Color(0xFFE53E3E), size: 50),
                 ),
@@ -630,7 +706,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
               top: 10,
               right: 10,
               child: IconButton(
-                icon: const Icon(Icons.close, color: AppTheme.textPrimary, size: 30),
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
                 onPressed: () => Navigator.pop(context),
               ),
             ),
@@ -649,9 +725,9 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
+              Color(0xFF334155),
             ],
           ),
         ),
@@ -663,7 +739,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                   color: Colors.black.withOpacity(0.4),
                   child: const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF7B2FBE),
+                      color: Color(0xFF667EEA),
                       strokeWidth: 4,
                     ),
                   ),
@@ -683,79 +759,90 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Container(
-                            width: 1000,
-                            padding: const EdgeInsets.all(24),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.backgroundMid.withOpacity(0.8),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
+                          AnimatedBuilder(
+                            animation: _headerController,
+                            builder: (context, child) {
+                              return FadeTransition(
+                                opacity: _headerFadeAnimation,
+                                child: Transform.scale(
+                                  scale: _headerScaleAnimation.value + (_pulseController.value * 0.03),
+                                  child: Container(
+                                    width: 1000,
+                                    padding: const EdgeInsets.all(24),
+                                    margin: const EdgeInsets.only(bottom: 24),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF0F172A),
+                                          Color(0xFF1E293B),
+                                          Color(0xFF334155),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF334155).withOpacity(0.5),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 8),
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(0.2),
+                                            ),
+                                          ),
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.arrow_back_rounded,
+                                              color: Colors.white,
+                                              size: 28,
+                                            ),
+                                            onPressed: () => Navigator.pop(context),
+                                            tooltip: 'Back',
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Student Profile',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 36,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Colors.white,
+                                                  letterSpacing: -0.5,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'View student details and test history',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 18,
+                                                  color: Colors.white.withOpacity(0.9),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.arrow_back_rounded,
-                                      color: AppTheme.textPrimary,
-                                      size: 28,
-                                    ),
-                                    onPressed: () => Navigator.pop(context),
-                                    tooltip: 'Back',
-                                  ),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Student Profile',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 36,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppTheme.textPrimary,
-                                          letterSpacing: -0.5,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'View student details and test history',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 18,
-                                          color: AppTheme.textPrimary.withOpacity(0.9),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 1000),
@@ -785,7 +872,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                         Icon(
                                           Icons.person_rounded,
                                           size: 80,
-                                          color: AppTheme.textSecondary.withOpacity(0.5),
+                                          color: const Color(0xFF94A3B8).withOpacity(0.5),
                                         ),
                                         const SizedBox(height: 16),
                                         Text(
@@ -793,7 +880,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                           style: GoogleFonts.inter(
                                             fontSize: 28,
                                             fontWeight: FontWeight.w700,
-                                            color: AppTheme.textPrimary,
+                                            color: Colors.white,
                                           ),
                                         ),
                                         const SizedBox(height: 8),
@@ -802,7 +889,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                           style: GoogleFonts.inter(
                                             fontSize: 16,
                                             fontWeight: FontWeight.w500,
-                                            color: AppTheme.textSecondary,
+                                            color: const Color(0xFF94A3B8),
                                           ),
                                         ),
                                       ],
@@ -812,7 +899,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                 if (snap.connectionState == ConnectionState.waiting) {
                                   return const Center(
                                     child: CircularProgressIndicator(
-                                      color: Color(0xFF7B2FBE),
+                                      color: Color(0xFF667EEA),
                                       strokeWidth: 4,
                                     ),
                                   );
@@ -837,7 +924,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                       style: GoogleFonts.inter(
                                         fontSize: 24,
                                         fontWeight: FontWeight.w700,
-                                        color: AppTheme.textPrimary,
+                                        color: Colors.white,
                                       ),
                                     ),
                                     const SizedBox(height: 16),
@@ -862,7 +949,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                         if (!resSnap.hasData) {
                                           return const Center(
                                             child: CircularProgressIndicator(
-                                              color: Color(0xFF7B2FBE),
+                                              color: Color(0xFF667EEA),
                                               strokeWidth: 4,
                                             ),
                                           );
@@ -884,7 +971,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                                 Icon(
                                                   Icons.quiz_rounded,
                                                   size: 80,
-                                                  color: AppTheme.textSecondary.withOpacity(0.5),
+                                                  color: const Color(0xFF94A3B8).withOpacity(0.5),
                                                 ),
                                                 const SizedBox(height: 16),
                                                 Text(
@@ -892,7 +979,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                                   style: GoogleFonts.inter(
                                                     fontSize: 28,
                                                     fontWeight: FontWeight.w700,
-                                                    color: AppTheme.textPrimary,
+                                                    color: Colors.white,
                                                   ),
                                                 ),
                                                 const SizedBox(height: 8),
@@ -901,13 +988,14 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                                   style: GoogleFonts.inter(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w500,
-                                                    color: AppTheme.textSecondary,
+                                                    color: const Color(0xFF94A3B8),
                                                   ),
                                                 ),
                                               ],
                                             ),
                                           );
                                         }
+                                        _initializeCardAnimations(results.length);
                                         return ListView.builder(
                                           shrinkWrap: true,
                                           physics: const NeverScrollableScrollPhysics(),
@@ -932,7 +1020,7 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                                   ),
                                                   child: const Icon(
                                                     Icons.delete_rounded,
-                                                    color: AppTheme.textPrimary,
+                                                    color: Colors.white,
                                                     size: 32,
                                                   ),
                                                 ),
@@ -940,12 +1028,18 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                                                   await _deleteResult(r.id);
                                                   return true;
                                                 },
-                                                child: TestResultCard(
-                                                  result: data,
-                                                  student: student,
-                                                  index: i,
-                                                  gradient: gradient,
-                                                  onDownload: () => _downloadResult(data, student),
+                                                child: FadeTransition(
+                                                  opacity: _cardFadeAnimations[i],
+                                                  child: SlideTransition(
+                                                    position: _cardSlideAnimations[i],
+                                                    child: TestResultCard(
+                                                      result: data,
+                                                      student: student,
+                                                      index: i,
+                                                      gradient: gradient,
+                                                      onDownload: () => _downloadResult(data, student),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             );
@@ -963,11 +1057,11 @@ class _StudentProfilePageState extends State<StudentProfilePage> {
                             padding: const EdgeInsets.all(16),
                             child: Center(
                               child: Text(
-                                'Developed by Brolytics Technologies',
+                                'Developed By Brolytics Technologies',
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
-                                  color: AppTheme.textMuted,
+                                  color: const Color(0xFF64748B),
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -1003,8 +1097,37 @@ class ProfileCard extends StatefulWidget {
   _ProfileCardState createState() => _ProfileCardState();
 }
 
-class _ProfileCardState extends State<ProfileCard> {
+class _ProfileCardState extends State<ProfileCard> with TickerProviderStateMixin {
+  late AnimationController _hoverController;
+  late Animation<double> _hoverAnimation;
   bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _hoverAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    super.dispose();
+  }
+
+  void _onHover(bool hovering) {
+    setState(() => _isHovered = hovering);
+    if (hovering) {
+      _hoverController.forward();
+    } else {
+      _hoverController.reverse();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1015,186 +1138,194 @@ class _ProfileCardState extends State<ProfileCard> {
     final batch = widget.student['batch'] ?? 'N/A';
     final batchTiming = widget.student['batchTiming'] ?? 'N/A';
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundMid.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.border.withOpacity(0.5),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: widget.gradient.first.withOpacity(_isHovered ? 0.4 : 0.2),
-              blurRadius: _isHovered ? 25 : 15,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: widget.onImageTap,
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: widget.gradient,
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: widget.gradient.first.withOpacity(0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: AnimatedScale(
-                      scale: _isHovered ? 1.08 : 1.0,
-                      duration: const Duration(milliseconds: 250),
-                      child: Center(
-                        child: profilePictureUrl != null
-                            ? ClipOval(
-                          child: CachedNetworkImage(
-                            imageUrl: profilePictureUrl,
-                            fit: BoxFit.cover,
-                            width: 50,
-                            height: 50,
-                            placeholder: (context, url) => const Center(
-                              child: CircularProgressIndicator(color: Color(0xFF7B2FBE)),
+      onEnter: (_) => _onHover(true),
+      onExit: (_) => _onHover(false),
+      child: AnimatedBuilder(
+        animation: _hoverAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _hoverAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B).withOpacity(0.9),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF475569).withOpacity(0.3),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.gradient.first.withOpacity(_isHovered ? 0.4 : 0.2),
+                    blurRadius: _isHovered ? 25 : 15,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GestureDetector(
+                        onTap: widget.onImageTap,
+                        child: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: widget.gradient,
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
                             ),
-                            errorWidget: (context, url, error) => Center(
-                              child: Text(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: widget.gradient.first.withOpacity(0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: AnimatedScale(
+                            scale: _isHovered ? 1.08 : 1.0,
+                            duration: const Duration(milliseconds: 250),
+                            child: Center(
+                              child: profilePictureUrl != null
+                                  ? ClipOval(
+                                child: CachedNetworkImage(
+                                  imageUrl: profilePictureUrl,
+                                  fit: BoxFit.cover,
+                                  width: 50,
+                                  height: 50,
+                                  placeholder: (context, url) => const Center(
+                                    child: CircularProgressIndicator(color: Color(0xFF667EEA)),
+                                  ),
+                                  errorWidget: (context, url, error) => Center(
+                                    child: Text(
+                                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              )
+                                  : Text(
                                 name.isNotEmpty ? name[0].toUpperCase() : '?',
                                 style: GoogleFonts.inter(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w700,
-                                  color: AppTheme.textPrimary,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
                           ),
-                        )
-                            : Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : '?',
-                          style: GoogleFonts.inter(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.textPrimary,
-                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppTheme.textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        courseName,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: AppTheme.textSecondary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: widget.gradient.first.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'Active Student',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: widget.gradient.first,
-                          ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              courseName,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF94A3B8),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: widget.gradient.first.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'Active Student',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: widget.gradient.first,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  ProfileDetailRow(
+                    icon: Icons.email_rounded,
+                    label: 'Email',
+                    value: widget.student['email'] ?? 'N/A',
+                    gradient: widget.gradient,
+                  ),
+                  const SizedBox(height: 12),
+                  ProfileDetailRow(
+                    icon: Icons.book_rounded,
+                    label: 'Course Name',
+                    value: courseName,
+                    gradient: widget.gradient,
+                  ),
+                  const SizedBox(height: 12),
+                  ProfileDetailRow(
+                    icon: Icons.confirmation_number_rounded,
+                    label: 'Admission Number',
+                    value: admissionNumber,
+                    gradient: widget.gradient,
+                  ),
+                  const SizedBox(height: 12),
+                  ProfileDetailRow(
+                    icon: Icons.person_rounded,
+                    label: "Father's Name",
+                    value: widget.student['fatherName'] ?? 'N/A',
+                    gradient: widget.gradient,
+                  ),
+                  const SizedBox(height: 12),
+                  ProfileDetailRow(
+                    icon: Icons.location_on_rounded,
+                    label: 'Address',
+                    value: widget.student['address'] ?? 'N/A',
+                    gradient: widget.gradient,
+                  ),
+                  const SizedBox(height: 12),
+                  ProfileDetailRow(
+                    icon: Icons.group_rounded,
+                    label: 'Batch',
+                    value: batch,
+                    gradient: widget.gradient,
+                  ),
+                  const SizedBox(height: 12),
+                  ProfileDetailRow(
+                    icon: Icons.schedule_rounded,
+                    label: 'Batch Timing',
+                    value: batchTiming,
+                    gradient: widget.gradient,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            ProfileDetailRow(
-              icon: Icons.email_rounded,
-              label: 'Email',
-              value: widget.student['email'] ?? 'N/A',
-              gradient: widget.gradient,
-            ),
-            const SizedBox(height: 12),
-            ProfileDetailRow(
-              icon: Icons.book_rounded,
-              label: 'Course Name',
-              value: courseName,
-              gradient: widget.gradient,
-            ),
-            const SizedBox(height: 12),
-            ProfileDetailRow(
-              icon: Icons.confirmation_number_rounded,
-              label: 'Admission Number',
-              value: admissionNumber,
-              gradient: widget.gradient,
-            ),
-            const SizedBox(height: 12),
-            ProfileDetailRow(
-              icon: Icons.person_rounded,
-              label: "Father's Name",
-              value: widget.student['fatherName'] ?? 'N/A',
-              gradient: widget.gradient,
-            ),
-            const SizedBox(height: 12),
-            ProfileDetailRow(
-              icon: Icons.location_on_rounded,
-              label: 'Address',
-              value: widget.student['address'] ?? 'N/A',
-              gradient: widget.gradient,
-            ),
-            const SizedBox(height: 12),
-            ProfileDetailRow(
-              icon: Icons.group_rounded,
-              label: 'Batch',
-              value: batch,
-              gradient: widget.gradient,
-            ),
-            const SizedBox(height: 12),
-            ProfileDetailRow(
-              icon: Icons.schedule_rounded,
-              label: 'Batch Timing',
-              value: batchTiming,
-              gradient: widget.gradient,
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -1240,7 +1371,7 @@ class ProfileDetailRow extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: AppTheme.textSecondary,
+                  color: const Color(0xFF94A3B8),
                 ),
               ),
               Text(
@@ -1248,7 +1379,7 @@ class ProfileDetailRow extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: AppTheme.textPrimary,
+                  color: Colors.white,
                 ),
               ),
             ],
@@ -1279,8 +1410,37 @@ class TestResultCard extends StatefulWidget {
   _TestResultCardState createState() => _TestResultCardState();
 }
 
-class _TestResultCardState extends State<TestResultCard> {
+class _TestResultCardState extends State<TestResultCard> with TickerProviderStateMixin {
+  late AnimationController _hoverController;
+  late Animation<double> _hoverAnimation;
   bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _hoverAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    super.dispose();
+  }
+
+  void _onHover(bool hovering) {
+    setState(() => _isHovered = hovering);
+    if (hovering) {
+      _hoverController.forward();
+    } else {
+      _hoverController.reverse();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1293,208 +1453,216 @@ class _TestResultCardState extends State<TestResultCard> {
     final incorrect = (widget.result['incorrect'] as List<dynamic>? ?? []);
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundMid.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.border.withOpacity(0.5),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: widget.gradient.first.withOpacity(_isHovered ? 0.4 : 0.2),
-              blurRadius: _isHovered ? 25 : 15,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: ExpansionTile(
-          key: PageStorageKey(widget.result['timestamp'] ?? widget.index),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          backgroundColor: AppTheme.backgroundStart.withOpacity(0.9),
-          collapsedBackgroundColor: AppTheme.backgroundStart.withOpacity(0.9),
-          iconColor: widget.gradient.first,
-          collapsedIconColor: AppTheme.textSecondary,
-          trailing: AnimatedIconButton(
-            onPressed: widget.onDownload,
-            icon: Icons.download_rounded,
-            color: widget.gradient.first,
-          ),
-          title: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: widget.gradient,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: widget.gradient.first.withOpacity(0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: AnimatedScale(
-                  scale: _isHovered ? 1.08 : 1.0,
-                  duration: const Duration(milliseconds: 250),
-                  child: const Center(
-                    child: Icon(
-                      Icons.quiz_rounded,
-                      size: 24,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.result['subjectName'] ?? 'Subject',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Score: ${widget.result['score'] ?? 0} / ${widget.result['total'] ?? 0}',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      dateStr,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: AppTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: widget.gradient.first.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: AnimatedRotation(
-                  turns: _isHovered ? 0.0 : -0.125,
-                  duration: const Duration(milliseconds: 250),
-                  child: Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 20,
-                    color: widget.gradient.first,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          children: incorrect.map<Widget>((e) {
-            final opts = (e['options'] as List).cast<String>();
-            final selected = e['selected'];
-            final correct = e['correct'];
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      onEnter: (_) => _onHover(true),
+      onExit: (_) => _onHover(false),
+      child: AnimatedBuilder(
+        animation: _hoverAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _hoverAnimation.value,
+            child: Container(
               padding: const EdgeInsets.all(16),
+              margin: const EdgeInsets.only(bottom: 8),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundStart,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.border.withOpacity(0.5)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    e['question'] ?? 'Unknown',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE53E3E),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Your answer: ${selected != null && selected < opts.length ? opts[selected] : 'N/A'}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xFFE53E3E),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        width: 20,
-                        height: 20,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF10B981),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.check_rounded,
-                          size: 16,
-                          color: AppTheme.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Correct answer: ${correct != null && correct < opts.length ? opts[correct] : 'N/A'}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            color: const Color(0xFF10B981),
-                          ),
-                        ),
-                      ),
-                    ],
+                color: const Color(0xFF1E293B).withOpacity(0.9),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFF475569).withOpacity(0.3),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: widget.gradient.first.withOpacity(_isHovered ? 0.4 : 0.2),
+                    blurRadius: _isHovered ? 25 : 15,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
-            );
-          }).toList(),
-        ),
+              child: ExpansionTile(
+                key: PageStorageKey(widget.result['timestamp'] ?? widget.index),
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                backgroundColor: const Color(0xFF1E293B).withOpacity(0.9),
+                collapsedBackgroundColor: const Color(0xFF1E293B).withOpacity(0.9),
+                iconColor: widget.gradient.first,
+                collapsedIconColor: const Color(0xFF94A3B8),
+                trailing: AnimatedIconButton(
+                  onPressed: widget.onDownload,
+                  icon: Icons.download_rounded,
+                  color: widget.gradient.first,
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: widget.gradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: widget.gradient.first.withOpacity(0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: AnimatedScale(
+                        scale: _isHovered ? 1.08 : 1.0,
+                        duration: const Duration(milliseconds: 250),
+                        child: const Center(
+                          child: Icon(
+                            Icons.quiz_rounded,
+                            size: 24,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.result['subjectName'] ?? 'Subject',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Score: ${widget.result['score'] ?? 0} / ${widget.result['total'] ?? 0}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            dateStr,
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF94A3B8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: widget.gradient.first.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: AnimatedRotation(
+                        turns: _isHovered ? 0.0 : -0.125,
+                        duration: const Duration(milliseconds: 250),
+                        child: Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 20,
+                          color: widget.gradient.first,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                children: incorrect.map<Widget>((e) {
+                  final opts = (e['options'] as List).cast<String>();
+                  final selected = e['selected'];
+                  final correct = e['correct'];
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF475569).withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          e['question'] ?? 'Unknown',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE53E3E),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Your answer: ${selected != null && selected < opts.length ? opts[selected] : 'N/A'}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xFFE53E3E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Correct answer: ${correct != null && correct < opts.length ? opts[correct] : 'N/A'}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: const Color(0xFF10B981),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1516,28 +1684,55 @@ class AnimatedIconButton extends StatefulWidget {
   _AnimatedIconButtonState createState() => _AnimatedIconButtonState();
 }
 
-class _AnimatedIconButtonState extends State<AnimatedIconButton> {
-  bool _isHovered = false;
+class _AnimatedIconButtonState extends State<AnimatedIconButton> with TickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: widget.color.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: IconButton(
-          icon: Icon(
-            widget.icon,
-            color: widget.color,
-            size: 20,
-          ),
-          onPressed: widget.onPressed,
-        ),
+      onEnter: (_) => _controller.forward(),
+      onExit: (_) => _controller.reverse(),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: widget.color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                icon: Icon(
+                  widget.icon,
+                  color: widget.color,
+                  size: 20,
+                ),
+                onPressed: widget.onPressed,
+              ),
+            ),
+          );
+        },
       ),
     );
   }

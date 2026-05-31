@@ -1,7 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Screen showing the current student's past test results.
@@ -12,16 +11,112 @@ class TestHistoryScreen extends StatefulWidget {
   State<TestHistoryScreen> createState() => _TestHistoryScreenState();
 }
 
-class _TestHistoryScreenState extends State<TestHistoryScreen> {
+class _TestHistoryScreenState extends State<TestHistoryScreen> with TickerProviderStateMixin {
+  late AnimationController _headerController;
+  late AnimationController _pulseController;
+  late AnimationController _noResultsController;
+  late Animation<double> _headerFadeAnimation;
+  late Animation<double> _headerScaleAnimation;
+  late Animation<double> _noResultsFadeAnimation;
+  late Animation<double> _noResultsScaleAnimation;
+  late List<AnimationController> _cardControllers;
+  late List<Animation<double>> _cardFadeAnimations;
+  late List<Animation<Offset>> _cardSlideAnimations;
   bool _isLoading = false;
 
   // Gradient colors for cards, matching FeedbackListPage
   final List<List<Color>> cardGradients = [
-    [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
-    [AppTheme.surfaceElevated, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
+    [const Color(0xFF667EEA), const Color(0xFF764BA2)],
+    [const Color(0xFF10B981), const Color(0xFF38EF7D)],
+    [const Color(0xFFFC466B), const Color(0xFF3F5EFB)],
+    [const Color(0xFFF59E0B), const Color(0xFFEAB308)],
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeAnimations();
+    _cardControllers = [];
+    _cardFadeAnimations = [];
+    _cardSlideAnimations = [];
+  }
+
+  void _initializeAnimations() {
+    _headerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
+    _noResultsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+
+    _headerFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutQuad),
+    );
+    _headerScaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutBack),
+    );
+    _noResultsFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _noResultsController, curve: Curves.easeOutQuad),
+    );
+    _noResultsScaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _noResultsController, curve: Curves.easeOutBack),
+    );
+
+    _headerController.forward();
+    _pulseController.repeat(reverse: true);
+    _noResultsController.forward();
+  }
+
+  void _initializeCardAnimations(int itemCount) {
+    if (_cardControllers.length == itemCount) return;
+    for (var controller in _cardControllers) {
+      controller.dispose();
+    }
+    _cardControllers.clear();
+    _cardFadeAnimations.clear();
+    _cardSlideAnimations.clear();
+
+    for (int i = 0; i < itemCount; i++) {
+      final controller = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 800),
+      );
+      final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeOutQuad),
+      );
+      final slideAnimation = Tween<Offset>(
+        begin: const Offset(0, 0.2),
+        end: Offset.zero,
+      ).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
+      );
+
+      _cardControllers.add(controller);
+      _cardFadeAnimations.add(fadeAnimation);
+      _cardSlideAnimations.add(slideAnimation);
+
+      Future.delayed(Duration(milliseconds: i * 150), () {
+        if (mounted) controller.forward();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _headerController.dispose();
+    _pulseController.dispose();
+    _noResultsController.dispose();
+    for (var controller in _cardControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,9 +129,9 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
+                Color(0xFF0F172A),
+                Color(0xFF1E293B),
+                Color(0xFF334155),
               ],
             ),
           ),
@@ -52,33 +147,39 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(32.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.person_off_rounded,
-                              size: 80,
-                              color: AppTheme.textSecondary.withOpacity(0.5),
+                        child: FadeTransition(
+                          opacity: _noResultsFadeAnimation,
+                          child: ScaleTransition(
+                            scale: _noResultsScaleAnimation,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.person_off_rounded,
+                                  size: 80,
+                                  color: const Color(0xFF94A3B8).withOpacity(0.5),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Not Logged In',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Please log in to view your test history',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Not Logged In',
-                              style: GoogleFonts.inter(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Please log in to view your test history',
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.textSecondary,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -98,9 +199,9 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
+              Color(0xFF334155),
             ],
           ),
         ),
@@ -112,7 +213,7 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                   color: Colors.black.withOpacity(0.4),
                   child: const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF7B2FBE),
+                      color: Color(0xFF667EEA),
                       strokeWidth: 4,
                     ),
                   ),
@@ -133,79 +234,90 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Header
-                          Container(
-                            width: 1000,
-                            padding: const EdgeInsets.all(24),
-                            margin: const EdgeInsets.only(bottom: 24),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [
-                                  AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.backgroundMid.withOpacity(0.8),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
+                          AnimatedBuilder(
+                            animation: _headerController,
+                            builder: (context, child) {
+                              return FadeTransition(
+                                opacity: _headerFadeAnimation,
+                                child: Transform.scale(
+                                  scale: _headerScaleAnimation.value + (_pulseController.value * 0.03),
+                                  child: Container(
+                                    width: 1000,
+                                    padding: const EdgeInsets.all(24),
+                                    margin: const EdgeInsets.only(bottom: 24),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [
+                                          Color(0xFF0F172A),
+                                          Color(0xFF1E293B),
+                                          Color(0xFF334155),
+                                        ],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF334155).withOpacity(0.5),
+                                          blurRadius: 20,
+                                          offset: const Offset(0, 8),
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(0.2),
+                                            ),
+                                          ),
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.arrow_back_rounded,
+                                              color: Colors.white,
+                                              size: 28,
+                                            ),
+                                            onPressed: () => Navigator.pop(context),
+                                            tooltip: 'Back',
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Test History',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 36,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Colors.white,
+                                                  letterSpacing: -0.5,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'View your past test results',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 18,
+                                                  color: Colors.white.withOpacity(0.9),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.arrow_back_rounded,
-                                      color: AppTheme.textPrimary,
-                                      size: 28,
-                                    ),
-                                    onPressed: () => Navigator.pop(context),
-                                    tooltip: 'Back',
-                                  ),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Test History',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 36,
-                                          fontWeight: FontWeight.w800,
-                                          color: AppTheme.textPrimary,
-                                          letterSpacing: -0.5,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'View your past test results',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 18,
-                                          color: AppTheme.textPrimary.withOpacity(0.9),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
                           // Test Results
                           ConstrainedBox(
@@ -231,7 +343,7 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                                 if (snapshot.connectionState == ConnectionState.waiting) {
                                   return const Center(
                                     child: CircularProgressIndicator(
-                                      color: Color(0xFF7B2FBE),
+                                      color: Color(0xFF667EEA),
                                       strokeWidth: 4,
                                     ),
                                   );
@@ -248,35 +360,43 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                                   });
 
                                 if (results.isEmpty) {
-                                  return Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.history_rounded,
-                                        size: 80,
-                                        color: AppTheme.textSecondary.withOpacity(0.5),
+                                  return FadeTransition(
+                                    opacity: _noResultsFadeAnimation,
+                                    child: ScaleTransition(
+                                      scale: _noResultsScaleAnimation,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.history_rounded,
+                                            size: 80,
+                                            color: const Color(0xFF94A3B8).withOpacity(0.5),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'No Test Results',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'You haven\'t taken any tests yet',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                              color: const Color(0xFF94A3B8),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'No Test Results',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppTheme.textPrimary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'You haven\'t taken any tests yet',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppTheme.textSecondary,
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   );
                                 }
+
+                                _initializeCardAnimations(results.length);
 
                                 return ListView.builder(
                                   shrinkWrap: true,
@@ -304,6 +424,8 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                                       total: total,
                                       dateStr: dateStr,
                                       percentage: percentage,
+                                      fadeAnimation: _cardFadeAnimations[index],
+                                      slideAnimation: _cardSlideAnimations[index],
                                     );
                                   },
                                 );
@@ -316,11 +438,11 @@ class _TestHistoryScreenState extends State<TestHistoryScreen> {
                             padding: const EdgeInsets.all(16),
                             child: Center(
                               child: Text(
-                                'Developed by Brolytics Technologies',
+                                'Developed By Brolytics Technologies',
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
-                                  color: AppTheme.textMuted,
+                                  color: const Color(0xFF64748B),
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -349,6 +471,8 @@ class TestResultCard extends StatefulWidget {
   final int total;
   final String dateStr;
   final int percentage;
+  final Animation<double> fadeAnimation;
+  final Animation<Offset> slideAnimation;
 
   const TestResultCard({
     Key? key,
@@ -360,129 +484,174 @@ class TestResultCard extends StatefulWidget {
     required this.total,
     required this.dateStr,
     required this.percentage,
+    required this.fadeAnimation,
+    required this.slideAnimation,
   }) : super(key: key);
 
   @override
   _TestResultCardState createState() => _TestResultCardState();
 }
 
-class _TestResultCardState extends State<TestResultCard> {
+class _TestResultCardState extends State<TestResultCard> with TickerProviderStateMixin {
+  late AnimationController _hoverController;
+  late Animation<double> _hoverAnimation;
   bool _isHovered = false;
 
   @override
+  void initState() {
+    super.initState();
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+    _hoverAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    super.dispose();
+  }
+
+  void _onHover(bool hovering) {
+    setState(() => _isHovered = hovering);
+    if (hovering) {
+      _hoverController.forward();
+    } else {
+      _hoverController.reverse();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(
-          color: AppTheme.backgroundMid.withOpacity(0.9),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppTheme.border.withOpacity(0.5),
-            width: 1.5,
+    return FadeTransition(
+      opacity: widget.fadeAnimation,
+      child: SlideTransition(
+        position: widget.slideAnimation,
+        child: MouseRegion(
+          onEnter: (_) => _onHover(true),
+          onExit: (_) => _onHover(false),
+          child: AnimatedBuilder(
+            animation: _hoverAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _hoverAnimation.value,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B).withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: const Color(0xFF475569).withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.gradient.first.withOpacity(_isHovered ? 0.4 : 0.2),
+                        blurRadius: _isHovered ? 25 : 15,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Icon/Avatar
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: widget.gradient,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: widget.gradient.first.withOpacity(0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: AnimatedScale(
+                          scale: _isHovered ? 1.08 : 1.0,
+                          duration: const Duration(milliseconds: 250),
+                          child: Center(
+                            child: Icon(
+                              Icons.quiz_rounded,
+                              size: 32,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Content
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.subject,
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Score: ${widget.score} / ${widget.total} (${widget.percentage}%)',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF94A3B8),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.dateStr,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Percentage Indicator
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: widget.gradient.first.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${widget.percentage}%',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: widget.percentage >= 80
+                                ? Colors.green
+                                : widget.percentage >= 60
+                                ? Colors.orange
+                                : Colors.red,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
-          boxShadow: [
-            BoxShadow(
-              color: widget.gradient.first.withOpacity(_isHovered ? 0.4 : 0.2),
-              blurRadius: _isHovered ? 25 : 15,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Icon/Avatar
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: widget.gradient,
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.gradient.first.withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: AnimatedScale(
-                scale: _isHovered ? 1.08 : 1.0,
-                duration: const Duration(milliseconds: 250),
-                child: Center(
-                  child: Icon(
-                    Icons.quiz_rounded,
-                    size: 32,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.subject,
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textPrimary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Score: ${widget.score} / ${widget.total} (${widget.percentage}%)',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.dateStr,
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Percentage Indicator
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: widget.gradient.first.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '${widget.percentage}%',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: widget.percentage >= 80
-                      ? Colors.green
-                      : widget.percentage >= 60
-                      ? Colors.orange
-                      : Colors.red,
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );

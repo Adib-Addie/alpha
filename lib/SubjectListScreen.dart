@@ -1,8 +1,7 @@
-
+﻿
 import 'package:animations/animations.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'app_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'TestDisclaimerScreen.dart';
 
@@ -13,15 +12,107 @@ const SubjectListScreen({super.key});
 State<SubjectListScreen> createState() => _SubjectListScreenState();
 }
 
-class _SubjectListScreenState extends State<SubjectListScreen> {
+class _SubjectListScreenState extends State<SubjectListScreen> with TickerProviderStateMixin {
+late AnimationController _headerController;
+late AnimationController _pulseController;
+late AnimationController _noSubjectsController;
+late Animation<double> _headerFadeAnimation;
+late Animation<double> _headerScaleAnimation;
+late Animation<double> _noSubjectsFadeAnimation;
+late Animation<double> _noSubjectsScaleAnimation;
+late List<AnimationController> _cardControllers;
+late List<Animation<double>> _cardFadeAnimations;
+late List<Animation<Offset>> _cardSlideAnimations;
 bool _isLoading = false;
 
 final List<List<Color>> cardGradients = [
-[AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
-[AppTheme.surfaceElevated, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-[AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-[AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
+[const Color(0xFF667EEA), const Color(0xFF764BA2)],
+[const Color(0xFF10B981), const Color(0xFF38EF7D)],
+[const Color(0xFFFC466B), const Color(0xFF3F5EFB)],
+[const Color(0xFFF59E0B), const Color(0xFFEAB308)],
 ];
+
+@override
+void initState() {
+super.initState();
+_headerController = AnimationController(
+vsync: this,
+duration: const Duration(milliseconds: 1200),
+);
+_pulseController = AnimationController(
+vsync: this,
+duration: const Duration(milliseconds: 2500),
+);
+_noSubjectsController = AnimationController(
+vsync: this,
+duration: const Duration(milliseconds: 1000),
+);
+_headerFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+CurvedAnimation(parent: _headerController, curve: Curves.easeOutQuad),
+);
+_headerScaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
+CurvedAnimation(parent: _headerController, curve: Curves.easeOutBack),
+);
+_noSubjectsFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+CurvedAnimation(parent: _noSubjectsController, curve: Curves.easeOutQuad),
+);
+_noSubjectsScaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
+CurvedAnimation(parent: _noSubjectsController, curve: Curves.easeOutBack),
+);
+_headerController.forward();
+_pulseController.repeat(reverse: true);
+_noSubjectsController.forward();
+
+_cardControllers = [];
+_cardFadeAnimations = [];
+_cardSlideAnimations = [];
+}
+
+@override
+void dispose() {
+_headerController.dispose();
+_pulseController.dispose();
+_noSubjectsController.dispose();
+for (var controller in _cardControllers) {
+controller.dispose();
+}
+super.dispose();
+}
+
+void _initializeCardAnimations(int itemCount) {
+if (_cardControllers.length == itemCount) return;
+for (var controller in _cardControllers) {
+controller.dispose();
+}
+_cardControllers.clear();
+_cardFadeAnimations.clear();
+_cardSlideAnimations.clear();
+
+final maxAnimatedCards = itemCount > 5 ? 5 : itemCount;
+for (int i = 0; i < maxAnimatedCards; i++) {
+final controller = AnimationController(
+vsync: this,
+duration: const Duration(milliseconds: 800),
+);
+final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+CurvedAnimation(parent: controller, curve: Curves.easeOutQuad),
+);
+final slideAnimation = Tween<Offset>(
+begin: const Offset(0, 0.2),
+end: Offset.zero,
+).animate(
+CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
+);
+
+_cardControllers.add(controller);
+_cardFadeAnimations.add(fadeAnimation);
+_cardSlideAnimations.add(slideAnimation);
+
+Future.delayed(Duration(milliseconds: i * 150), () {
+if (mounted) controller.forward();
+});
+}
+}
 
 void _showLockedSubjectSnackBar() {
 ScaffoldMessenger.of(context).showSnackBar(
@@ -54,9 +145,9 @@ gradient: LinearGradient(
 begin: Alignment.topLeft,
 end: Alignment.bottomRight,
 colors: [
-AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
+Color(0xFF0F172A),
+Color(0xFF1E293B),
+Color(0xFF334155),
 ],
 ),
 ),
@@ -68,7 +159,7 @@ child: Container(
 color: Colors.black.withOpacity(0.4),
 child: const Center(
 child: CircularProgressIndicator(
-color: Color(0xFF7B2FBE),
+color: Color(0xFF667EEA),
 strokeWidth: 4,
 ),
 ),
@@ -87,16 +178,23 @@ child: Column(
 mainAxisAlignment: MainAxisAlignment.center,
 crossAxisAlignment: CrossAxisAlignment.center,
 children: [
-Container(
+AnimatedBuilder(
+animation: _headerController,
+builder: (context, child) {
+return FadeTransition(
+opacity: _headerFadeAnimation,
+child: Transform.scale(
+scale: _headerScaleAnimation.value + (_pulseController.value * 0.03),
+child: Container(
 width: 1000,
 padding: const EdgeInsets.all(24),
 margin: const EdgeInsets.only(bottom: 24),
 decoration: BoxDecoration(
 gradient: const LinearGradient(
 colors: [
-AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
+Color(0xFF0F172A),
+Color(0xFF1E293B),
+Color(0xFF334155),
 ],
 begin: Alignment.topLeft,
 end: Alignment.bottomRight,
@@ -104,7 +202,7 @@ end: Alignment.bottomRight,
 borderRadius: BorderRadius.circular(20),
 boxShadow: [
 BoxShadow(
-color: AppTheme.backgroundMid.withOpacity(0.8),
+color: const Color(0xFF334155).withOpacity(0.5),
 blurRadius: 20,
 offset: const Offset(0, 8),
 spreadRadius: 2,
@@ -125,7 +223,7 @@ color: Colors.white.withOpacity(0.2),
 child: IconButton(
 icon: const Icon(
 Icons.arrow_back_rounded,
-color: AppTheme.textPrimary,
+color: Colors.white,
 size: 28,
 ),
 onPressed: () => Navigator.pop(context),
@@ -142,7 +240,7 @@ Text(
 style: GoogleFonts.inter(
 fontSize: 36,
 fontWeight: FontWeight.w800,
-color: AppTheme.textPrimary,
+color: Colors.white,
 letterSpacing: -0.5,
 ),
 ),
@@ -151,7 +249,7 @@ Text(
 'Choose a subject to start your test',
 style: GoogleFonts.inter(
 fontSize: 18,
-color: AppTheme.textPrimary.withOpacity(0.9),
+color: Colors.white.withOpacity(0.9),
 fontWeight: FontWeight.w500,
 ),
 ),
@@ -160,6 +258,10 @@ fontWeight: FontWeight.w500,
 ),
 ],
 ),
+),
+),
+);
+},
 ),
 ConstrainedBox(
 constraints: const BoxConstraints(maxWidth: 1000),
@@ -174,7 +276,7 @@ return Center(
 child: Container(
 padding: const EdgeInsets.all(24),
 decoration: BoxDecoration(
-color: AppTheme.backgroundMid,
+color: const Color(0xFF1E293B),
 borderRadius: BorderRadius.circular(16),
 border: Border.all(
 color: const Color(0xFFE53E3E).withOpacity(0.3),
@@ -194,7 +296,7 @@ Text(
 style: GoogleFonts.inter(
 fontSize: 20,
 fontWeight: FontWeight.w700,
-color: AppTheme.textPrimary,
+color: Colors.white,
 ),
 ),
 const SizedBox(height: 8),
@@ -202,7 +304,7 @@ Text(
 'Please try again later',
 style: GoogleFonts.inter(
 fontSize: 16,
-color: AppTheme.textSecondary,
+color: const Color(0xFF94A3B8),
 ),
 ),
 ],
@@ -214,7 +316,7 @@ color: AppTheme.textSecondary,
 if (snapshot.connectionState == ConnectionState.waiting) {
 return const Center(
 child: CircularProgressIndicator(
-color: Color(0xFF7B2FBE),
+color: Color(0xFF667EEA),
 strokeWidth: 4,
 ),
 );
@@ -245,7 +347,7 @@ builder: (context, AsyncSnapshot snapshot) {
 if (snapshot.connectionState == ConnectionState.waiting) {
 return const Center(
 child: CircularProgressIndicator(
-color: Color(0xFF7B2FBE),
+color: Color(0xFF667EEA),
 strokeWidth: 4,
 ),
 );
@@ -253,13 +355,17 @@ strokeWidth: 4,
 
 if (validSubjects.isEmpty) {
 return Center(
+child: FadeTransition(
+opacity: _noSubjectsFadeAnimation,
+child: ScaleTransition(
+scale: _noSubjectsScaleAnimation,
 child: Column(
 mainAxisSize: MainAxisSize.min,
 children: [
 Icon(
 Icons.book_rounded,
 size: 80,
-color: AppTheme.textSecondary.withOpacity(0.5),
+color: const Color(0xFF94A3B8).withOpacity(0.5),
 ),
 const SizedBox(height: 16),
 Text(
@@ -267,7 +373,7 @@ Text(
 style: GoogleFonts.inter(
 fontSize: 28,
 fontWeight: FontWeight.w700,
-color: AppTheme.textPrimary,
+color: Colors.white,
 ),
 ),
 const SizedBox(height: 8),
@@ -276,15 +382,19 @@ Text(
 style: GoogleFonts.inter(
 fontSize: 16,
 fontWeight: FontWeight.w500,
-color: AppTheme.textSecondary,
+color: const Color(0xFF94A3B8),
 height: 1.5,
 ),
 textAlign: TextAlign.center,
 ),
 ],
 ),
+),
+),
 );
 }
+
+_initializeCardAnimations(validSubjects.length);
 
 return GridView.builder(
 shrinkWrap: true,
@@ -299,11 +409,16 @@ itemCount: validSubjects.length,
 itemBuilder: (context, index) {
 final subject = validSubjects[index];
 final gradient = cardGradients[index % cardGradients.length];
+final animationIndex = index < _cardFadeAnimations.length ? index : 0;
 
-return ModernAnimatedCard(
+return FadeTransition(
+opacity: _cardFadeAnimations[animationIndex],
+child: SlideTransition(
+position: _cardSlideAnimations[animationIndex],
+child: ModernAnimatedCard(
 title: subject['name'] ?? 'Unknown',
 subtitle: subject['locked']
-? '?? Locked - Test unavailable'
+? '🛑 Locked - Test unavailable'
     : 'Start your test',
 icon: Icons.quiz_rounded,
 gradient: gradient,
@@ -332,6 +447,8 @@ child: child,
 },
 isLocked: subject['locked'],
 delay: index * 150,
+),
+),
 );
 },
 );
@@ -345,11 +462,11 @@ Container(
 padding: const EdgeInsets.all(16),
 child: Center(
 child: Text(
-'Developed by Brolytics Technologies',
+'Developed By Brolytics Technologies',
 style: GoogleFonts.inter(
 fontSize: 14,
 fontWeight: FontWeight.w500,
-color: AppTheme.textMuted,
+color: const Color(0xFF64748B),
 ),
 textAlign: TextAlign.center,
 ),
@@ -394,24 +511,96 @@ this.onLockToggle,
 State<ModernAnimatedCard> createState() => _ModernAnimatedCardState();
 }
 
-class _ModernAnimatedCardState extends State<ModernAnimatedCard> {
+class _ModernAnimatedCardState extends State<ModernAnimatedCard> with TickerProviderStateMixin {
+late AnimationController _controller;
+late AnimationController _hoverController;
+late AnimationController _lockController;
+late Animation<double> _fadeAnimation;
+late Animation<Offset> _slideAnimation;
+late Animation<double> _hoverAnimation;
+late Animation<double> _lockScaleAnimation;
 bool _isHovered = false;
+
+@override
+void initState() {
+super.initState();
+_controller = AnimationController(
+vsync: this,
+duration: const Duration(milliseconds: 800),
+);
+_hoverController = AnimationController(
+vsync: this,
+duration: const Duration(milliseconds: 250),
+);
+_lockController = AnimationController(
+vsync: this,
+duration: const Duration(milliseconds: 200),
+);
+
+_fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+CurvedAnimation(parent: _controller, curve: Curves.easeOutQuad),
+);
+_slideAnimation = Tween<Offset>(
+begin: const Offset(0, 0.2),
+end: Offset.zero,
+).animate(
+CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+);
+_hoverAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+);
+_lockScaleAnimation = Tween<double>(begin: 1.0, end: 0.9).animate(
+CurvedAnimation(parent: _lockController, curve: Curves.easeInOut),
+);
+
+Future.delayed(Duration(milliseconds: widget.delay), () {
+if (mounted) {
+_controller.forward();
+}
+});
+}
+
+@override
+void dispose() {
+_controller.dispose();
+_hoverController.dispose();
+_lockController.dispose();
+super.dispose();
+}
+
+void _onHover(bool hovering) {
+setState(() => _isHovered = hovering);
+if (hovering) {
+_hoverController.forward();
+} else {
+_hoverController.reverse();
+}
+}
 
 @override
 Widget build(BuildContext context) {
 return MouseRegion(
-onEnter: (_) => setState(() => _isHovered = true),
-onExit: (_) => setState(() => _isHovered = false),
+onEnter: (_) => _onHover(true),
+onExit: (_) => _onHover(false),
+child: FadeTransition(
+opacity: _fadeAnimation,
+child: SlideTransition(
+position: _slideAnimation,
+child: AnimatedBuilder(
+animation: _hoverAnimation,
+builder: (context, child) {
+return Transform.scale(
+scale: _hoverAnimation.value,
 child: GestureDetector(
 onTap: widget.onPressed,
 child: Container(
 padding: const EdgeInsets.all(16),
 margin: const EdgeInsets.only(bottom: 8),
 decoration: BoxDecoration(
-color: AppTheme.backgroundMid.withOpacity(0.9),
+color: const Color(0xFF1E293B).withOpacity(0.9),
 borderRadius: BorderRadius.circular(16),
 border: Border.all(
-color: AppTheme.border.withOpacity(0.5),
+color: const Color(0xFF475569).withOpacity(0.3),
 width: 1.5,
 ),
 boxShadow: [
@@ -442,10 +631,14 @@ offset: const Offset(0, 4),
 ),
 ],
 ),
+child: AnimatedScale(
+scale: _isHovered ? 1.08 : 1.0,
+duration: const Duration(milliseconds: 250),
 child: Icon(
 widget.icon,
 size: 24,
-color: AppTheme.textPrimary,
+color: Colors.white,
+),
 ),
 ),
 const SizedBox(width: 12),
@@ -459,7 +652,7 @@ widget.title,
 style: GoogleFonts.inter(
 fontSize: 16,
 fontWeight: FontWeight.w700,
-color: AppTheme.textPrimary,
+color: Colors.white,
 ),
 overflow: TextOverflow.ellipsis,
 ),
@@ -469,14 +662,17 @@ widget.subtitle,
 style: GoogleFonts.inter(
 fontSize: 12,
 fontWeight: FontWeight.w500,
-color: AppTheme.textSecondary,
+color: const Color(0xFF94A3B8),
 ),
 overflow: TextOverflow.ellipsis,
 ),
 ],
 ),
 ),
-Container(
+AnimatedRotation(
+turns: _isHovered ? 0.0 : -0.125,
+duration: const Duration(milliseconds: 250),
+child: Container(
 padding: const EdgeInsets.all(8),
 decoration: BoxDecoration(
 color: widget.gradient.first.withOpacity(0.2),
@@ -488,7 +684,13 @@ size: 20,
 color: widget.gradient.first,
 ),
 ),
+),
 ],
+),
+),
+),
+);
+},
 ),
 ),
 ),

@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import 'app_theme.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:animations/animations.dart';
 
 class StudentLeaderboardPage extends StatefulWidget {
   const StudentLeaderboardPage({Key? key}) : super(key: key);
@@ -10,23 +10,222 @@ class StudentLeaderboardPage extends StatefulWidget {
   _StudentLeaderboardPageState createState() => _StudentLeaderboardPageState();
 }
 
-class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
+class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> with TickerProviderStateMixin {
   String? _selectedBatch;
+  late AnimationController _headerController;
+  AnimationController? _loaderController;
+  late Animation<double> _headerFadeAnimation;
+  late Animation<double> _headerScaleAnimation;
+  Animation<double>? _loaderRotationAnimation;
+  late List<AnimationController> _cardControllers;
+  late List<Animation<double>> _cardFadeAnimations;
+  late List<Animation<Offset>> _cardSlideAnimations;
 
   final List<List<Color>> cardGradients = [
-    [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
-    [AppTheme.surfaceElevated, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.backgroundStart, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [const Color(0xFF0A0020), const Color(0xFF150040), const Color(0xFF200060)],
-    [const Color(0xFF12002F), const Color(0xFF1C0050), const Color(0xFF2D0080)],
-    [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
-    [AppTheme.surfaceElevated, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [AppTheme.surfaceElevated, AppTheme.backgroundMid, AppTheme.backgroundEnd],
-    [const Color(0xFF0A0020), const Color(0xFF150040), const Color(0xFF200060)],
-    [const Color(0xFF12002F), const Color(0xFF1C0050), const Color(0xFF2D0080)],
-    [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
+    [const Color(0xFF667EEA), const Color(0xFF764BA2)],
+    [const Color(0xFF10B981), const Color(0xFF38EF7D)],
+    [const Color(0xFFFC466B), const Color(0xFF3F5EFB)],
+    [const Color(0xFFF59E0B), const Color(0xFFEAB308)],
+    [const Color(0xFFFF6B6B), const Color(0xFF4ECDC4)],
+    [const Color(0xFF845EC2), const Color(0xFFD65DB1)],
+    [const Color(0xFF4E54C8), const Color(0xFF8F94FB)],
+    [const Color(0xFFFF9A8B), const Color(0xFFA8E6CF)],
+    [const Color(0xFF00C9FF), const Color(0xFF92FE9D)],
+    [const Color(0xFFFC00FF), const Color(0xFF00DBDE)],
+    [const Color(0xFFFFCC70), const Color(0xFFC850C0)],
+    [const Color(0xFF4481EB), const Color(0xFF04BEFE)],
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _headerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+
+    _headerFadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.easeOutQuart),
+    );
+    _headerScaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _headerController, curve: Curves.elasticOut),
+    );
+
+    _headerController.forward();
+
+    _cardControllers = [];
+    _cardFadeAnimations = [];
+    _cardSlideAnimations = [];
+  }
+
+  @override
+  void dispose() {
+    _headerController.dispose();
+    _loaderController?.dispose();
+    for (var controller in _cardControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _initializeCardAnimations(int itemCount) {
+    if (_cardControllers.length != itemCount) {
+      for (var controller in _cardControllers) {
+        controller.dispose();
+      }
+      _cardControllers.clear();
+      _cardFadeAnimations.clear();
+      _cardSlideAnimations.clear();
+
+      for (int i = 0; i < itemCount; i++) {
+        final controller = AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 1000),
+        );
+        final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+          CurvedAnimation(parent: controller, curve: Curves.easeOutQuart),
+        );
+        final slideAnimation = Tween<Offset>(
+          begin: const Offset(0, 0.3),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(parent: controller, curve: Curves.elasticOut),
+        );
+
+        _cardControllers.add(controller);
+        _cardFadeAnimations.add(fadeAnimation);
+        _cardSlideAnimations.add(slideAnimation);
+
+        Future.delayed(Duration(milliseconds: i * 100), () {
+          if (mounted) controller.forward();
+        });
+      }
+    }
+  }
+
+  Widget _buildCustomLoader({String text = 'Loading...'}) {
+    // Initialize loader controller only when needed
+    if (_loaderController == null) {
+      _loaderController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 2000),
+      )..repeat();
+
+      _loaderRotationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _loaderController!, curve: Curves.linear),
+      );
+    }
+
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF667EEA).withOpacity(0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                AnimatedBuilder(
+                  animation: _loaderRotationAnimation!,
+                  builder: (context, child) {
+                    return Transform.rotate(
+                      angle: _loaderRotationAnimation!.value * 2 * 3.14159,
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 3,
+                          ),
+                          borderRadius: BorderRadius.circular(40),
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(32),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const Icon(
+                  Icons.leaderboard_rounded,
+                  color: Colors.white,
+                  size: 40,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            text,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: 150,
+            height: 3,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: AnimatedBuilder(
+              animation: _loaderController!,
+              builder: (context, child) {
+                return Stack(
+                  children: [
+                    Container(
+                      width: 150 * (_loaderController!.value),
+                      height: 3,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF667EEA).withOpacity(0.5),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<List<String>> _fetchBatches() async {
     try {
@@ -50,7 +249,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.error_outline, color: AppTheme.textPrimary, size: 20),
+                child: const Icon(Icons.error_outline, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -63,14 +262,14 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                     Text(
                       'Failed to fetch batches: $e',
                       style: GoogleFonts.inter(
                         fontSize: 14,
-                        color: AppTheme.textPrimary.withOpacity(0.9),
+                        color: Colors.white.withOpacity(0.9),
                       ),
                     ),
                   ],
@@ -151,7 +350,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.error_outline, color: AppTheme.textPrimary, size: 20),
+                child: const Icon(Icons.error_outline, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -164,14 +363,14 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                     Text(
                       'Failed to fetch leaderboard: $e',
                       style: GoogleFonts.inter(
                         fontSize: 14,
-                        color: AppTheme.textPrimary.withOpacity(0.9),
+                        color: Colors.white.withOpacity(0.9),
                       ),
                     ),
                   ],
@@ -199,10 +398,10 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppTheme.backgroundStart,
-              AppTheme.backgroundMid,
-              AppTheme.backgroundEnd,
-              AppTheme.border,
+              Color(0xFF0F172A),
+              Color(0xFF1E293B),
+              Color(0xFF334155),
+              Color(0xFF475569),
             ],
             stops: [0.0, 0.3, 0.7, 1.0],
           ),
@@ -219,7 +418,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     colors: [
-                      const Color(0xFF7B2FBE).withOpacity(0.1),
+                      const Color(0xFF667EEA).withOpacity(0.1),
                       Colors.transparent,
                     ],
                   ),
@@ -236,7 +435,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
                     colors: [
-                      AppTheme.backgroundEnd.withOpacity(0.08),
+                      const Color(0xFF764BA2).withOpacity(0.08),
                       Colors.transparent,
                     ],
                   ),
@@ -258,169 +457,180 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Container(
-                          width: 1000,
-                          padding: const EdgeInsets.all(28),
-                          margin: const EdgeInsets.only(bottom: 32),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.backgroundMid.withOpacity(0.95),
-                                AppTheme.backgroundEnd.withOpacity(0.9),
-                                AppTheme.divider.withOpacity(0.85),
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.1),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF000000).withOpacity(0.3),
-                                blurRadius: 30,
-                                offset: const Offset(0, 12),
-                                spreadRadius: 0,
-                              ),
-                              BoxShadow(
-                                color: const Color(0xFF7B2FBE).withOpacity(0.1),
-                                blurRadius: 40,
-                                offset: const Offset(0, 0),
-                                spreadRadius: 0,
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFF7B2FBE).withOpacity(0.3),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
+                        AnimatedBuilder(
+                          animation: _headerController,
+                          builder: (context, child) {
+                            return FadeTransition(
+                              opacity: _headerFadeAnimation,
+                              child: Transform.scale(
+                                scale: _headerScaleAnimation.value,
+                                child: Container(
+                                  width: 1000,
+                                  padding: const EdgeInsets.all(28),
+                                  margin: const EdgeInsets.only(bottom: 32),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        const Color(0xFF1E293B).withOpacity(0.95),
+                                        const Color(0xFF334155).withOpacity(0.9),
+                                        const Color(0xFF475569).withOpacity(0.85),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                  ],
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.arrow_back_rounded,
-                                    color: AppTheme.textPrimary,
-                                    size: 28,
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.1),
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF000000).withOpacity(0.3),
+                                        blurRadius: 30,
+                                        offset: const Offset(0, 12),
+                                        spreadRadius: 0,
+                                      ),
+                                      BoxShadow(
+                                        color: const Color(0xFF667EEA).withOpacity(0.1),
+                                        blurRadius: 40,
+                                        offset: const Offset(0, 0),
+                                        spreadRadius: 0,
+                                      ),
+                                    ],
                                   ),
-                                  onPressed: () {
-                                    if (_selectedBatch != null) {
-                                      setState(() => _selectedBatch = null);
-                                    } else {
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                  tooltip: _selectedBatch != null ? 'Back to Batches' : 'Back',
-                                ),
-                              ),
-                              const SizedBox(width: 20),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(12),
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                                          ),
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(0.2),
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(0xFF667EEA).withOpacity(0.3),
+                                              blurRadius: 12,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.arrow_back_rounded,
+                                            color: Colors.white,
+                                            size: 28,
+                                          ),
+                                          onPressed: () {
+                                            if (_selectedBatch != null) {
+                                              setState(() => _selectedBatch = null);
+                                            } else {
+                                              Navigator.pop(context);
+                                            }
+                                          },
+                                          tooltip: _selectedBatch != null ? 'Back to Batches' : 'Back',
+                                        ),
+                                      ),
+                                      const SizedBox(width: 20),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        const Color(0xFF667EEA).withOpacity(0.2),
+                                                        const Color(0xFF764BA2).withOpacity(0.2),
+                                                      ],
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(14),
+                                                    border: Border.all(
+                                                      color: const Color(0xFF667EEA).withOpacity(0.3),
+                                                    ),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.leaderboard_rounded,
+                                                    color: Color(0xFF667EEA),
+                                                    size: 32,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                Expanded(
+                                                  child: Text(
+                                                    _selectedBatch ?? 'Student Leaderboard',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 38,
+                                                      fontWeight: FontWeight.w900,
+                                                      color: Colors.white,
+                                                      letterSpacing: -0.8,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white.withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: Colors.white.withOpacity(0.2),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                _selectedBatch != null
+                                                    ? 'Rankings based on test performance'
+                                                    : 'Select a batch to view student rankings',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 16,
+                                                  color: Colors.white.withOpacity(0.95),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (_selectedBatch == null)
                                         Container(
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
                                             gradient: LinearGradient(
                                               colors: [
-                                                const Color(0xFF7B2FBE).withOpacity(0.2),
-                                                AppTheme.backgroundEnd.withOpacity(0.2),
+                                                Colors.white.withOpacity(0.1),
+                                                Colors.white.withOpacity(0.05),
                                               ],
                                             ),
-                                            borderRadius: BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(16),
                                             border: Border.all(
-                                              color: const Color(0xFF7B2FBE).withOpacity(0.3),
+                                              color: Colors.white.withOpacity(0.2),
                                             ),
                                           ),
-                                          child: const Icon(
-                                            Icons.leaderboard_rounded,
-                                            color: Color(0xFF7B2FBE),
-                                            size: 32,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        Expanded(
-                                          child: Text(
-                                            _selectedBatch ?? 'Student Leaderboard',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 38,
-                                              fontWeight: FontWeight.w900,
-                                              color: AppTheme.textPrimary,
-                                              letterSpacing: -0.8,
+                                          child: IconButton(
+                                            icon: const Icon(
+                                              Icons.refresh_rounded,
+                                              color: Colors.white,
+                                              size: 28,
                                             ),
-                                            overflow: TextOverflow.ellipsis,
+                                            onPressed: () => setState(() {}),
+                                            tooltip: 'Refresh',
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.2),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        _selectedBatch != null
-                                            ? 'Rankings based on test performance'
-                                            : 'Select a batch to view student rankings',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 16,
-                                          color: Colors.white.withOpacity(0.95),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
-                              if (_selectedBatch == null)
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.white.withOpacity(0.1),
-                                        Colors.white.withOpacity(0.05),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.2),
-                                    ),
-                                  ),
-                                  child: IconButton(
-                                    icon: const Icon(
-                                      Icons.refresh_rounded,
-                                      color: AppTheme.textPrimary,
-                                      size: 28,
-                                    ),
-                                    onPressed: () => setState(() {}),
-                                    tooltip: 'Refresh',
-                                  ),
-                                ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 1000),
@@ -429,7 +639,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                             future: _fetchBatches(),
                             builder: (context, snapshot) {
                               if (snapshot.connectionState == ConnectionState.waiting) {
-                                return const Center(child: CircularProgressIndicator(color: Color(0xFF7B2FBE)));
+                                return _buildCustomLoader(text: 'Loading Batches...');
                               }
                               if (snapshot.hasError) {
                                 return _buildErrorWidget(
@@ -447,6 +657,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                                   isError: false,
                                 );
                               }
+                              _initializeCardAnimations(batches.length);
                               return GridView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
@@ -460,11 +671,17 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                                 itemBuilder: (context, index) {
                                   final batch = batches[index];
                                   final gradient = cardGradients[index % cardGradients.length];
-                                  return ModernBatchCard(
-                                    batch: batch,
-                                    gradient: gradient,
-                                    onTap: () => setState(() => _selectedBatch = batch),
-                                    index: index,
+                                  return FadeTransition(
+                                    opacity: _cardFadeAnimations[index],
+                                    child: SlideTransition(
+                                      position: _cardSlideAnimations[index],
+                                      child: ModernBatchCard(
+                                        batch: batch,
+                                        gradient: gradient,
+                                        onTap: () => setState(() => _selectedBatch = batch),
+                                        index: index,
+                                      ),
+                                    ),
                                   );
                                 },
                               );
@@ -474,7 +691,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                             future: _fetchLeaderboardData(_selectedBatch!),
                             builder: (context, snapshot) {
                               if (snapshot.connectionState == ConnectionState.waiting) {
-                                return const Center(child: CircularProgressIndicator(color: Color(0xFF7B2FBE)));
+                                return _buildCustomLoader(text: 'Loading Leaderboard...');
                               }
                               if (snapshot.hasError) {
                                 return _buildErrorWidget(
@@ -492,6 +709,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                                   isError: false,
                                 );
                               }
+                              _initializeCardAnimations(leaderboard.length);
                               return ListView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
@@ -499,10 +717,16 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                                 itemBuilder: (context, index) {
                                   final student = leaderboard[index];
                                   final gradient = _getRankGradient(index + 1);
-                                  return ModernLeaderboardCard(
-                                    student: student,
-                                    rank: index + 1,
-                                    gradient: gradient,
+                                  return FadeTransition(
+                                    opacity: _cardFadeAnimations[index],
+                                    child: SlideTransition(
+                                      position: _cardSlideAnimations[index],
+                                      child: ModernLeaderboardCard(
+                                        student: student,
+                                        rank: index + 1,
+                                        gradient: gradient,
+                                      ),
+                                    ),
                                   );
                                 },
                               );
@@ -526,23 +750,23 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
                                   gradient: const LinearGradient(
-                                    colors: [AppTheme.backgroundMid, AppTheme.backgroundEnd, AppTheme.backgroundEnd],
+                                    colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
                                   ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Icon(
                                   Icons.code_rounded,
-                                  color: AppTheme.textPrimary,
+                                  color: Colors.white,
                                   size: 14,
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                'Developed by Brolytics Technologies',
+                                'Developed By Brolytics Technologies',
                                 style: GoogleFonts.inter(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: AppTheme.textSecondary,
+                                  color: const Color(0xFF94A3B8),
                                 ),
                               ),
                             ],
@@ -585,12 +809,12 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
                 gradient: LinearGradient(
                   colors: isError
                       ? [const Color(0xFFE53E3E), const Color(0xFFFC8181)]
-                      : [AppTheme.textSecondary, AppTheme.textMuted],
+                      : [const Color(0xFF94A3B8), const Color(0xFF64748B)],
                 ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: (isError ? const Color(0xFFE53E3E) : AppTheme.textSecondary)
+                    color: (isError ? const Color(0xFFE53E3E) : const Color(0xFF94A3B8))
                         .withOpacity(0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
@@ -600,7 +824,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
               child: Icon(
                 icon,
                 size: 48,
-                color: AppTheme.textPrimary,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 24),
@@ -609,7 +833,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
               style: GoogleFonts.inter(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary,
+                color: Colors.white,
               ),
             ),
             const SizedBox(height: 12),
@@ -618,7 +842,7 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.textSecondary,
+                color: const Color(0xFF94A3B8),
               ),
               textAlign: TextAlign.center,
             ),
@@ -631,11 +855,11 @@ class _StudentLeaderboardPageState extends State<StudentLeaderboardPage> {
   List<Color> _getRankGradient(int rank) {
     switch (rank) {
       case 1:
-        return [const Color(0xFFFFD700), const Color(0xFFFFA500)];
+        return [const Color(0xFFFFD700), const Color(0xFFFFA500)]; // Gold
       case 2:
-        return [const Color(0xFFC0C0C0), const Color(0xFF808080)];
+        return [const Color(0xFFC0C0C0), const Color(0xFF808080)]; // Silver
       case 3:
-        return [const Color(0xFFCD7F32), const Color(0xFF8B4513)];
+        return [const Color(0xFFCD7F32), const Color(0xFF8B4513)]; // Bronze
       default:
         return cardGradients[(rank - 1) % cardGradients.length];
     }
@@ -660,149 +884,203 @@ class ModernBatchCard extends StatefulWidget {
   _ModernBatchCardState createState() => _ModernBatchCardState();
 }
 
-class _ModernBatchCardState extends State<ModernBatchCard> {
+class _ModernBatchCardState extends State<ModernBatchCard> with TickerProviderStateMixin {
+  late AnimationController _hoverController;
+  late AnimationController _glowController;
+  late Animation<double> _hoverAnimation;
+  late Animation<double> _glowAnimation;
   bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _glowController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
+
+    _hoverAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
+    _glowAnimation = Tween<double>(begin: 0.3, end: 0.8).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    _glowController.dispose();
+    super.dispose();
+  }
+
+  void _onHover(bool hovering) {
+    setState(() => _isHovered = hovering);
+    if (hovering) {
+      _hoverController.forward();
+    } else {
+      _hoverController.reverse();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: widget.gradient,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withOpacity(_isHovered ? 0.4 : 0.2),
-              width: _isHovered ? 2 : 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.gradient.first.withOpacity(_isHovered ? 0.6 : 0.3),
-                blurRadius: _isHovered ? 35 : 25,
-                offset: const Offset(0, 12),
-                spreadRadius: _isHovered ? 3 : 0,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
+      onEnter: (_) => _onHover(true),
+      onExit: (_) => _onHover(false),
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_hoverAnimation, _glowAnimation]),
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _hoverAnimation.value,
+            child: GestureDetector(
+              onTap: widget.onTap,
+              child: Container(
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: widget.gradient,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.4),
-                    width: 2,
+                    color: Colors.white.withOpacity(_isHovered ? 0.4 : 0.2),
+                    width: _isHovered ? 2 : 1.5,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.white.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: widget.gradient.first.withOpacity(_isHovered ? 0.6 : 0.3),
+                      blurRadius: _isHovered ? 35 : 25,
+                      offset: const Offset(0, 12),
+                      spreadRadius: _isHovered ? 3 : 0,
+                    ),
+                    BoxShadow(
+                      color: widget.gradient.last.withOpacity(_glowAnimation.value * 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 0),
+                      spreadRadius: 5,
                     ),
                   ],
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    AnimatedScale(
-                      scale: _isHovered ? 1.2 : 1.0,
-                      duration: const Duration(milliseconds: 300),
-                      child: const Icon(
-                        Icons.group_rounded,
-                        size: 32,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                    if (_isHovered)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Flexible(
-                child: Text(
-                  widget.batch,
-                  style: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.textPrimary,
-                    letterSpacing: -0.5,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(_isHovered ? 0.3 : 0.2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.leaderboard_rounded,
-                      color: AppTheme.textPrimary,
-                      size: 14,
+                    Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.4),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.2),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          AnimatedScale(
+                            scale: _isHovered ? 1.2 : 1.0,
+                            duration: const Duration(milliseconds: 300),
+                            child: const Icon(
+                              Icons.group_rounded,
+                              size: 32,
+                              color: Colors.white,
+                            ),
+                          ),
+                          if (_isHovered)
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'View Rankings',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                    const SizedBox(height: 16),
+                    Flexible(
+                      child: Text(
+                        widget.batch,
+                        style: GoogleFonts.inter(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: -0.5,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(_isHovered ? 0.3 : 0.2),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.leaderboard_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'View Rankings',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    AnimatedRotation(
+                      turns: _isHovered ? 0.25 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(_isHovered ? 0.2 : 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white.withOpacity(0.9),
+                          size: 20,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              AnimatedRotation(
-                turns: _isHovered ? 0.25 : 0.0,
-                duration: const Duration(milliseconds: 300),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(_isHovered ? 0.2 : 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.arrow_forward_rounded,
-                    color: AppTheme.textPrimary.withOpacity(0.9),
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -824,8 +1102,52 @@ class ModernLeaderboardCard extends StatefulWidget {
   _ModernLeaderboardCardState createState() => _ModernLeaderboardCardState();
 }
 
-class _ModernLeaderboardCardState extends State<ModernLeaderboardCard> {
+class _ModernLeaderboardCardState extends State<ModernLeaderboardCard> with TickerProviderStateMixin {
+  late AnimationController _hoverController;
+  late AnimationController _shimmerController;
+  late Animation<double> _hoverAnimation;
+  late Animation<double> _shimmerAnimation;
   bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hoverController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3000),
+    );
+
+    _hoverAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _hoverController, curve: Curves.easeInOut),
+    );
+    _shimmerAnimation = Tween<double>(begin: -1.0, end: 1.0).animate(
+      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut),
+    );
+
+    if (widget.rank <= 3) {
+      _shimmerController.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _hoverController.dispose();
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
+  void _onHover(bool hovering) {
+    setState(() => _isHovered = hovering);
+    if (hovering) {
+      _hoverController.forward();
+    } else {
+      _hoverController.reverse();
+    }
+  }
 
   Widget _buildRankBadge() {
     IconData icon;
@@ -879,6 +1201,27 @@ class _ModernLeaderboardCardState extends State<ModernLeaderboardCard> {
       child: Stack(
         alignment: Alignment.center,
         children: [
+          if (widget.rank <= 3)
+            AnimatedBuilder(
+              animation: _shimmerAnimation,
+              builder: (context, child) {
+                return Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Colors.white.withOpacity(0.3),
+                        Colors.transparent,
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                      begin: Alignment(-1.0 + _shimmerAnimation.value, -1.0),
+                      end: Alignment(1.0 + _shimmerAnimation.value, 1.0),
+                    ),
+                  ),
+                );
+              },
+            ),
           Icon(
             icon,
             color: textColor,
@@ -917,222 +1260,230 @@ class _ModernLeaderboardCardState extends State<ModernLeaderboardCard> {
     final testsCompleted = widget.student['testsCompleted'] ?? 0;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppTheme.backgroundMid.withOpacity(0.95),
-              AppTheme.backgroundEnd.withOpacity(0.9),
-              AppTheme.divider.withOpacity(0.85),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: widget.gradient.first.withOpacity(_isHovered ? 0.8 : 0.4),
-            width: _isHovered ? 2.5 : 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: widget.gradient.first.withOpacity(_isHovered ? 0.5 : 0.3),
-              blurRadius: _isHovered ? 30 : 20,
-              offset: const Offset(0, 8),
-              spreadRadius: _isHovered ? 3 : 0,
-            ),
-            BoxShadow(
-              color: const Color(0xFF000000).withOpacity(0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 80,
-              height: 80,
+      onEnter: (_) => _onHover(true),
+      onExit: (_) => _onHover(false),
+      child: AnimatedBuilder(
+        animation: _hoverAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _hoverAnimation.value,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: widget.gradient,
+                  colors: [
+                    const Color(0xFF1E293B).withOpacity(0.95),
+                    const Color(0xFF334155).withOpacity(0.9),
+                    const Color(0xFF475569).withOpacity(0.85),
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.4),
-                  width: 3,
+                  color: widget.gradient.first.withOpacity(_isHovered ? 0.8 : 0.4),
+                  width: _isHovered ? 2.5 : 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: widget.gradient.first.withOpacity(0.4),
+                    color: widget.gradient.first.withOpacity(_isHovered ? 0.5 : 0.3),
+                    blurRadius: _isHovered ? 30 : 20,
+                    offset: const Offset(0, 8),
+                    spreadRadius: _isHovered ? 3 : 0,
+                  ),
+                  BoxShadow(
+                    color: const Color(0xFF000000).withOpacity(0.2),
                     blurRadius: 15,
-                    offset: const Offset(0, 6),
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              child: profilePictureUrl != null
-                  ? ClipOval(
-                child: Image.network(
-                  profilePictureUrl,
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Center(
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: GoogleFonts.inter(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-                  : Center(
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: GoogleFonts.inter(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 24),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    name,
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.textPrimary,
-                      letterSpacing: -0.5,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              widget.gradient.first.withOpacity(0.3),
-                              widget.gradient.last.withOpacity(0.2),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: widget.gradient.first.withOpacity(0.4),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.quiz_rounded,
-                              size: 16,
-                              color: widget.gradient.first,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '$score/$totalQuestions',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: widget.gradient.first,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withOpacity(0.2),
-                              Colors.white.withOpacity(0.1),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.percent_rounded,
-                              size: 16,
-                              color: AppTheme.textPrimary.withOpacity(0.9),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$percentage%',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppTheme.textPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    width: 80,
+                    height: 80,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.assignment_turned_in_rounded,
-                          size: 14,
-                          color: AppTheme.textPrimary.withOpacity(0.8),
+                      gradient: LinearGradient(
+                        colors: widget.gradient,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.4),
+                        width: 3,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: widget.gradient.first.withOpacity(0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 6),
                         ),
-                        const SizedBox(width: 6),
+                      ],
+                    ),
+                    child: profilePictureUrl != null
+                        ? ClipOval(
+                      child: Image.network(
+                        profilePictureUrl,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Center(
+                          child: Text(
+                            name.isNotEmpty ? name[0].toUpperCase() : '?',
+                            style: GoogleFonts.inter(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                        : Center(
+                      child: Text(
+                        name.isNotEmpty ? name[0].toUpperCase() : '?',
+                        style: GoogleFonts.inter(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          '$testsCompleted tests completed',
+                          name,
                           style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimary.withOpacity(0.8),
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    widget.gradient.first.withOpacity(0.3),
+                                    widget.gradient.last.withOpacity(0.2),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: widget.gradient.first.withOpacity(0.4),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.quiz_rounded,
+                                    size: 16,
+                                    color: widget.gradient.first,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '$score/$totalQuestions',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: widget.gradient.first,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withOpacity(0.2),
+                                    Colors.white.withOpacity(0.1),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.percent_rounded,
+                                    size: 16,
+                                    color: Colors.white.withOpacity(0.9),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$percentage%',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.assignment_turned_in_rounded,
+                                size: 14,
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '$testsCompleted tests completed',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 20),
+                  AnimatedScale(
+                    scale: _isHovered ? 1.15 : 1.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: _buildRankBadge(),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 20),
-            AnimatedScale(
-              scale: _isHovered ? 1.15 : 1.0,
-              duration: const Duration(milliseconds: 300),
-              child: _buildRankBadge(),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
