@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "977278426951",
+    "project_id": "alphagraphics-5b922",
+    "storage_bucket": "alphagraphics-5b922.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:977278426951:android:5a1e41ad264ee8cd4fb662",
+        "android_client_info": {
+          "package_name": "com.example.alphagraphics"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC_UroE9iB8th520uKGTyV2jLcGVDPybQE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
